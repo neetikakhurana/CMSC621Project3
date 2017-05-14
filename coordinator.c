@@ -225,32 +225,34 @@ void *connection_handler(void * sock)
 	n=read(socketfd1, buffer1, MAXDATASIZE);
 	if(n < 0)
 	{
-		fprintf(stderr, "Error writing to server1\n");
+		fprintf(stderr, "Error reading from server1\n");
 	}
 	else
 	{
-		printf("Read successful to server1 %s\n",buffer1);
+		printf("Read successful from server1 %s\n",buffer1);
 	}
 
 	n=read(socketfd2, buffer2, MAXDATASIZE);
 	if(n < 0)
 	{
-		fprintf(stderr, "Error writing to server1\n");
+		fprintf(stderr, "Error reading from server1\n");
 	}
 	else
 	{
-		printf("Read successful to server1 %s\n",buffer2);
+		printf("Read successful from server2 %s\n",buffer2);
 	}
 
-	n=read(socketfd3, buffer2, MAXDATASIZE);
+	n=read(socketfd3, buffer3, MAXDATASIZE);
 	if(n < 0)
 	{
-		fprintf(stderr, "Error writing to server1\n");
+		fprintf(stderr, "Error reading from server1\n");
 	}
 	else
 	{
-		printf("REad successful to server1 %s\n",buffer3);
+		printf("REad successful from server3 %s\n",buffer3);
 	}
+
+	//when OK has been received from all the servers
 
 	if(buffer1!=NULL && buffer2!=NULL && buffer3!=NULL)
 

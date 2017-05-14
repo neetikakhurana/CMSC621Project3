@@ -46,17 +46,21 @@ int main(int argc, char **argv) {
 	}
 
     char buffer[256];
-
-   
-    	strcpy(buffer, "CREATE 50.00");
-    	
-    	int n = write(socketfd, buffer, strlen(buffer));
-		if(n < 0)
-		{	
-			fprintf(stderr, "Error with writing to coordinator\n");
-			exit(1);	
-		}
-		
+    int ch;
+    	do{
+	   		printf("Enter the command\n");
+	   		scanf("%s",buffer);
+	    	//strcpy(buffer, "CREATE 50.00");
+	    	
+	    	int n = write(socketfd, buffer, strlen(buffer));
+			if(n < 0)
+			{	
+				fprintf(stderr, "Error with writing to coordinator\n");
+				exit(1);	
+			}
+			printf("More?(0=No and 1=Yes)\n");
+			scanf("%d",ch);
+		}while(ch!=0);
     close(socketfd);
 	exit(0);
 }
