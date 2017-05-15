@@ -10,11 +10,15 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#define MAXDATASIZE 256
+#define MAXDATASIZE 1024
 
 void *connection_handler(void * sock);
 int socketfd1,socketfd2,socketfd3;
 
+	char buffer[MAXDATASIZE];
+	struct hostent *server;
+	int i=0,n;
+		char buffer1[MAXDATASIZE],buffer2[MAXDATASIZE],buffer3[MAXDATASIZE];
 
 int main(int argc, char *argv[])
 {
@@ -22,7 +26,6 @@ int main(int argc, char *argv[])
     
     int client_port, server1_port, server2_port, server3_port;
     struct hostent *server;
-	char buffer[MAXDATASIZE];
 	int *new_sock;
 	u_int yes=1;
 
@@ -49,7 +52,7 @@ int main(int argc, char *argv[])
     // terminated prematurely
     //
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *) &one, sizeof(one)) < 0) {
-        perror("SO_REUSEADDR error");
+        fprintf(stderr,"SO_REUSEADDR error");
     }
     
         
@@ -73,7 +76,7 @@ int main(int argc, char *argv[])
 
     
     listen(sock, 5);
-
+   
  	struct hostent *server1,*server2,*server3;
 
 	server1 = gethostbyname(argv[1]);
@@ -152,6 +155,17 @@ int main(int argc, char *argv[])
 	    new_sock = (int *)malloc(1);
 	    *new_sock = new_fd;
 
+	    printf("Socket no %d\n", new_fd);
+
+	     bzero(buffer,MAXDATASIZE);
+    strcpy(buffer,"OK");
+    //send OK to client
+    n=write(new_fd,buffer,MAXDATASIZE);
+    if(n<0){
+    	fprintf(stderr, "Error sending OK response to client\n");
+    }
+
+
 	    if(pthread_create( &sniffer_thread , NULL ,  connection_handler , (void*) new_sock) < 0)
 	    {
 	        perror("could not create thread");
@@ -165,7 +179,10 @@ int main(int argc, char *argv[])
 	{
 		pthread_join(sniffer_thread,NULL);
 	}
-
+	/*close(socketfd1);
+	close(socketfd1);
+	close(socketfd3);
+*/
 	close(sock);
 	exit(0);
 }
@@ -173,94 +190,37 @@ int main(int argc, char *argv[])
 //thread to send the messages to the sequencer as well as multicast the message to other processes
 void *connection_handler(void * sock)
 {
-	char buffer[MAXDATASIZE];
-	int newsocket = *(int *)sock;
-	struct hostent *server;
-	int i=0;
 	bzero(buffer, MAXDATASIZE);	
-	printf("Accepting from sequencer \n");
-	
-	int n = read(newsocket, buffer, MAXDATASIZE);
-	if(n < 0)
-	{
-		fprintf(stderr, "Error writing to socket\n");
-	}
-	else
-	{
-		printf("Read successful from client %s\n", buffer);
-	}
+	printf("Accepting from client \n");
+	int newsocket = *(int *)sock;
 
-	n=write(socketfd1, buffer, MAXDATASIZE);
-	if(n < 0)
+	//read multiple requests from clients
+	while(1)
 	{
-		fprintf(stderr, "Error writing to server1\n");
-	}
-	else
-	{
-		printf("Write successful to server1\n");
-	}
-  	
-  	n=write(socketfd2, buffer, MAXDATASIZE);
-	if(n < 0)
-	{
-		fprintf(stderr, "Error writing to server2\n");
-	}
-	else
-	{
-		printf("Write successful to server2\n");
-	}
-	
-	n=write(socketfd3, buffer, MAXDATASIZE);
-	if(n < 0)
-	{
-		fprintf(stderr, "Error writing to server3\n");
-	}
-	else
-	{
-		printf("Write successful to server3\n");
-	}
-
-	//READ OK FROM SERVERS
-	char buffer1[MAXDATASIZE],buffer2[MAXDATASIZE],buffer3[MAXDATASIZE];
-	n=read(socketfd1, buffer1, MAXDATASIZE);
-	if(n < 0)
-	{
-		fprintf(stderr, "Error reading from server1\n");
-	}
-	else
-	{
-		printf("Read successful from server1 %s\n",buffer1);
-	}
-
-	n=read(socketfd2, buffer2, MAXDATASIZE);
-	if(n < 0)
-	{
-		fprintf(stderr, "Error reading from server1\n");
-	}
-	else
-	{
-		printf("Read successful from server2 %s\n",buffer2);
-	}
-
-	n=read(socketfd3, buffer3, MAXDATASIZE);
-	if(n < 0)
-	{
-		fprintf(stderr, "Error reading from server1\n");
-	}
-	else
-	{
-		printf("REad successful from server3 %s\n",buffer3);
-	}
-
-	//when OK has been received from all the servers
-
-	if(buffer1!=NULL && buffer2!=NULL && buffer3!=NULL)
-
-	{
-		bzero(buffer, MAXDATASIZE);
-		strcpy(buffer,"COMMIT");
-		n=write(socketfd1, buffer, MAXDATASIZE);
+		n = read(newsocket, buffer, MAXDATASIZE);
 		if(n < 0)
+		{
+			fprintf(stderr, "Error writing to client\n");
+		}
+		else
+		{
+			printf("Read successful from client %s\n", buffer);
+		}
+
+		//send command to server1
+		int h=write(socketfd1, buffer, MAXDATASIZE);
+		if(h < 0)
+		{
+			fprintf(stderr, "Error writing to server1\n");
+		}
+		else
+		{
+			printf("Write successful to server1 %s\n",buffer);
+		}
+
+		//send command to server2	  	
+	  	h=write(socketfd2, buffer, MAXDATASIZE);
+		if(h < 0)
 		{
 			fprintf(stderr, "Error writing to server2\n");
 		}
@@ -269,17 +229,9 @@ void *connection_handler(void * sock)
 			printf("Write successful to server2 %s\n",buffer);
 		}
 		
-		n=write(socketfd2, buffer, MAXDATASIZE);
-		if(n < 0)
-		{
-			fprintf(stderr, "Error writing to server3\n");
-		}
-		else
-		{
-			printf("Write successful to server3 %s\n",buffer);
-		}
-		n=write(socketfd3, buffer, MAXDATASIZE);
-		if(n < 0)
+		//send command to server3
+		h=write(socketfd3, buffer, MAXDATASIZE);
+		if(h < 0)
 		{
 			fprintf(stderr, "Error writing to server3\n");
 		}
@@ -288,6 +240,96 @@ void *connection_handler(void * sock)
 			printf("Write successful to server3 %s\n",buffer);
 		}
 
+		//READ OK FROM SERVERS
+		//server1
+		printf("before%s\n", buffer1);
+		bzero(buffer1,MAXDATASIZE);
+		int t=read(socketfd1, buffer1, MAXDATASIZE);
+		if(t < 0)
+		{
+			fprintf(stderr, "Error reading from server1\n");
+		}
+		else
+		{
+			printf("Read successful from server1 %s\n",buffer1);
+		}
+
+		//server2
+		bzero(buffer2,MAXDATASIZE);
+		t=read(socketfd2, buffer2, MAXDATASIZE);
+		if(t < 0)
+		{
+			fprintf(stderr, "Error reading from server2\n");
+		}
+		else
+		{
+			printf("Read successful from server2 %s\n",buffer2);
+		}
+
+		//server3
+		bzero(buffer3,MAXDATASIZE);
+		t=read(socketfd3, buffer3, MAXDATASIZE);
+		if(t < 0)
+		{
+			fprintf(stderr, "Error reading from server3\n");
+		}
+		else
+		{
+			printf("REad successful from server3 %s\n",buffer3);
+		}
+
+		/*char *p=strtok(buffer," ");
+		printf("%s\n", p);
+		if(strcmp(p,"QUIT")==0){
+			break;
+		}*/
+
+		//when OK has been received from all the servers
+		//check if response has been received from all of them
+		//if not, then think of maintaining data consistency...............
+		if(strlen(buffer1)!=0 && strlen(buffer2)!=0 && strlen(buffer3)!=0)
+
+		{
+			//send global commit to all of them
+			bzero(buffer, MAXDATASIZE);
+			strcpy(buffer,"COMMIT");
+			t=write(socketfd1, buffer, MAXDATASIZE);
+			if(t < 0)
+			{
+				fprintf(stderr, "Error writing to server2\n");
+			}
+			else
+			{
+				printf("Write successful to server2 %s\n",buffer);
+			}
+			
+			t=write(socketfd2, buffer, MAXDATASIZE);
+			if(t < 0)
+			{
+				fprintf(stderr, "Error writing to server3\n");
+			}
+			else
+			{
+				printf("Write successful to server3 %s\n",buffer);
+			}
+			t=write(socketfd3, buffer, MAXDATASIZE);
+			if(t < 0)
+			{
+				fprintf(stderr, "Error writing to server3\n");
+			}
+			else
+			{
+				printf("Write successful to server3 %s\n",buffer);
+			}
+
+			//write the response to the client
+			t=write(newsocket,buffer3,MAXDATASIZE);
+			if(t<0){
+				fprintf(stderr, "Error writing final result to client\n");
+			}
+			
+		}
+		bzero(buffer,MAXDATASIZE);
 	}
 }
 

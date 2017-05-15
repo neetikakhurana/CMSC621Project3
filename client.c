@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <time.h>  //for timestamp 
 
+#define MAXDATASIZE 1024
 
 int main(int argc, char **argv) {
     if(argc < 3)   
@@ -45,21 +46,41 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Error connecting\n");
 	}
 
-    char buffer[256];
+    char buffer[MAXDATASIZE];
+    int n=read(socketfd,buffer,MAXDATASIZE);
+    if(n<0){
+    	fprintf(stderr, "Error receiving OK from coordinator\n");
+    }
     int ch;
     	do{
 	   		printf("Enter the command\n");
-	   		scanf("%s",buffer);
+	   		bzero(buffer,MAXDATASIZE);
+	   		fgets(buffer,MAXDATASIZE,stdin);
+	   		printf("%s\n", buffer);
 	    	//strcpy(buffer, "CREATE 50.00");
 	    	
-	    	int n = write(socketfd, buffer, strlen(buffer));
+	    	n = write(socketfd, buffer, strlen(buffer));
 			if(n < 0)
 			{	
 				fprintf(stderr, "Error with writing to coordinator\n");
 				exit(1);	
 			}
-			printf("More?(0=No and 1=Yes)\n");
-			scanf("%d",ch);
+			bzero(buffer, MAXDATASIZE);
+			n=read(socketfd,buffer,MAXDATASIZE);
+			if(n<0)
+			{
+				fprintf(stderr, "Error reading the final response\n");
+			}
+			else{
+				printf("Received : %s\n", buffer);
+				if(strcmp(buffer,"OK")==0)
+				{
+					close(socketfd);
+				}
+				printf("More?\n");
+				scanf("%d",&ch);
+			}
+			
 		}while(ch!=0);
     close(socketfd);
 	exit(0);
