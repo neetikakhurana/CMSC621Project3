@@ -17,7 +17,8 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Usage client <hostname> <port number>\n");
 		exit(1);
 	}
-    
+
+    FILE * filehandle;
     struct hostent *server;
 	int portno;
 	portno = atoi(argv[2]);
@@ -52,12 +53,18 @@ int main(int argc, char **argv) {
     	fprintf(stderr, "Error receiving OK from coordinator\n");
     }
     int ch;
+    filehandle = fopen("Test.txt","r");    
+    if(filehandle == 0){
+        printf("Unable to open file");
+        exit(1);
+    }
+    bzero(buffer,MAXDATASIZE);
+
+	   		fgets(buffer,MAXDATASIZE,filehandle);
     	do{
 	   		printf("Enter the command\n");
-	   		bzero(buffer,MAXDATASIZE);
-	   		fgets(buffer,MAXDATASIZE,stdin);
+	   		
 	   		printf("%s\n", buffer);
-	    	//strcpy(buffer, "CREATE 50.00");
 	    	
 	    	n = write(socketfd, buffer, strlen(buffer));
 			if(n < 0)
@@ -75,13 +82,17 @@ int main(int argc, char **argv) {
 				printf("Received : %s\n", buffer);
 				if(strcmp(buffer,"OK")==0)
 				{
+					printf("Connection closed by foreign host.\n");
 					close(socketfd);
+					exit(1);
 				}
-				printf("More?\n");
-				scanf("%d",&ch);
+				/*printf("More?\n");
+				scanf("%d",&ch);*/
+				bzero(buffer,MAXDATASIZE);
 			}
 			
-		}while(ch!=0);
+		}while(fgets(buffer,MAXDATASIZE,filehandle));
+	fclose(filehandle);
     close(socketfd);
 	exit(0);
 }

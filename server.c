@@ -11,6 +11,9 @@
 #include <unistd.h>
 
 #define MAXDATASIZE 1024
+pthread_mutex_t mut=PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mut1=PTHREAD_MUTEX_INITIALIZER;
+
 
 typedef struct {
             int acc_no; 
@@ -21,7 +24,8 @@ rec record[200];
 
 int main(int argc, char **argv)
 {
-	if(argc<3)
+	pthread_mutex_init(&mut,NULL);
+    if(argc<3)
 	{
 		fprintf(stderr, "Usage server <coordinator port> <server no>\n");
 		exit(1);
@@ -81,7 +85,6 @@ int main(int argc, char **argv)
         len = sizeof(rem_addr);
 
         int sock_fd = accept(sock, (struct sockaddr*)&rem_addr, &len);
-        //new_fd = sock_fd;
 		if(sock_fd<0)
 		{
 			fprintf(stderr, "%d : Error accepting socket\n",serverno);
@@ -93,65 +96,84 @@ int main(int argc, char **argv)
 		while(1)
         {
     		n=read(sock_fd, buffer, MAXDATASIZE);
-            //new_fd = sock_fd;
             if(n<0){
     			fprintf(stderr, "%d: Error reading\n",serverno);
     		}
-
+            if(strlen(buffer)==0)
+            {
+                close(sock_fd);
+                exit(1);
+            }
             printf("%d : in server %s\n", serverno, buffer);
+
+            //copy the transaction to "transaction" array
             strcpy(transaction,buffer);
+            bzero(buffer,MAXDATASIZE);
+            strcpy(buffer,"YES");
+            int x=write(sock_fd, buffer,MAXDATASIZE);
+            if(x<0)
+            {
+                fprintf(stderr, "Error writing yes/no to coordinator\n");
+            }
+
+            //receive the commit msg
+            bzero(buffer,MAXDATASIZE);
+            int h=read(sock_fd,buffer,MAXDATASIZE);
+            if(h<0){
+                fprintf(stderr, "Error reading commit msg from coordinator\n");
+            }
+            printf("%d : commit%s\n", serverno,buffer);
+
+            //check if it is global commit or abort
+            if(strcmp(buffer,"COMMIT")==0)
+            {
+                printf("Going to commit\n");
+               /* fseek(myfile, 0, SEEK_SET);
+                for(int k=0;k<i;k++){
+                fprintf(myfile, "%d %f\n", record[k].acc_no, record[k].amount);   
+                }  */       
+           
 
             //parse transaction and perform the task
             char *p;
             p=strtok(transaction," ");
             char command[10];
             strcpy(command,p);
-            if(strcmp(command,"QUIT\n")!=0){
-            p=strtok(NULL," ");
-        }
+            if(strcmp(command,"QUIT\n")!=0)
+            {
+                p=strtok(NULL," ");
+            }
             char line[200];
-            
             int num_lines=0;
-          /* while (fgets(line,200,myfile)) {
-                    char *q;
-                q = strtok(line," ");
-                record[i].acc_no = atoi(q);
-
-                q = strtok(NULL," ");
-                record[i].amount = atof(q);
-                if(line!=NULL){
-                    num_lines++;
-                                i++;
-
-                }
-        }*/
-
+          
             if(strcmp(command,"CREATE")==0)
             {
                 //create an account id
                
                 printf("CREATE\n");
-                double amt=atof(p);
-                            record[i].amount=amt;
-                printf("%f %f %d\n", amt,record[i].amount,i);
-                record[i].acc_no=randomacc;
-                printf("%d %d\n", randomacc, record[i].acc_no);
+                pthread_mutex_lock(&mut);
 
-                
-                //fseek(myfile, num_lines-1, SEEK_SET);
-                //num_lines++;
-                //fprintf(myfile, "%d %f\n", record[i-1].acc_no, record[i-1].amount);
-                 //return the account no
+                double amt=atof(p);
+                record[i].amount=amt;
+                record[i].acc_no=randomacc;
+
+                //return the account no
                 bzero(buffer,MAXDATASIZE);
                 sprintf(buffer,"OK %d",record[i].acc_no);
                 printf("buffer%s\n", buffer);
                 randomacc++;
                 i++;
+                fseek(myfile, 0, SEEK_SET);
+                for(int k=0;k<i;k++){
+                fprintf(myfile, "%d %f\n", record[k].acc_no, record[k].amount);   
+                }
+                pthread_mutex_unlock(&mut);
                 int t=write(sock_fd,buffer, MAXDATASIZE);
                 if(t<0){
                     fprintf(stderr, "%d : Error writing to coordinator\n", serverno);
                 }
             }
+
             else if(strcmp(command,"QUERY")==0)
             {
                 //query for account balance
@@ -169,12 +191,15 @@ int main(int argc, char **argv)
                 if(j<i){
                     bzero(buffer,MAXDATASIZE);
                     sprintf(buffer,"OK %f",record[j].amount);
+                    fseek(myfile, 0, SEEK_SET);
+                    for(int k=0;k<i;k++){
+                    fprintf(myfile, "%d %f\n", record[k].acc_no, record[k].amount);   
+                    }
                 }
                 else{
                     bzero(buffer,MAXDATASIZE);
                     sprintf(buffer,"ERR Account %d does not exist",acc);
                 }
-                //fprintf(buffer,"OK %d",record[j-1].amount);
                 int a=write(sock_fd,buffer, MAXDATASIZE);
                 if(a<0){
                     fprintf(stderr, "%d : Error writing to coordinator\n", serverno);
@@ -188,27 +213,38 @@ int main(int argc, char **argv)
                 int acc=atoi(p);
                 p=strtok(NULL," ");
                 double amt=atof(p);
-                printf("amt %f %d",amt,i);
+                int found=0;
                 int j=0;
                 for(j=0;j<i;j++){
                     printf("%d\n", record[j].acc_no);
                     if(record[j].acc_no==acc){
+                        found=1;
                         record[j].amount=amt;
                         break;
                     }
                 }
-              //  fseek(myfile, num_lines, SEEK_SET);
-              //  sprintf(buffer, "%d %f\n", record[j-1].acc_no, record[j-1].amount);
-                 //return the account no
+              
+                //return the account no
                 bzero(buffer,MAXDATASIZE);
-                //buffer="OK "+record[j-1].amount;
+                if(found==1)
+                {
                 sprintf(buffer,"OK %f",record[j].amount);
+                fseek(myfile, 0, SEEK_SET);
+                for(int k=0;k<i;k++){
+                fprintf(myfile, "%d %f\n", record[k].acc_no, record[k].amount);   
+                }
+                }
+                else
+                {
+                    sprintf(buffer,"ERR Account %d does not exist",acc);
+                }
                 printf("SEnding %s\n", buffer);
                 int b=write(sock_fd,buffer, MAXDATASIZE);
                 if(b<0){
                     fprintf(stderr, "%d : Error writing to coordinator\n", serverno);
                 }
             }
+
             else if(strcmp(command,"QUIT\n")==0){
                 //quit
                 printf("QUIT\n");
@@ -220,18 +256,26 @@ int main(int argc, char **argv)
                 {
                     fprintf(stderr, "ERROR sending ready to commit message to coordinator\n");
                 }
-              //  flag=0;
             }
 
-            //receive the commit msg
-            bzero(buffer,MAXDATASIZE);
-            int h=read(sock_fd,buffer,MAXDATASIZE);
-            if(h<0){
-            	fprintf(stderr, "Error reading commit msg from coordinator\n");
+            
+        }
+            else{
+                //global abort, dont save data into file
+                printf("Global abort\n");
+                bzero(buffer,MAXDATASIZE);
+                strcpy(buffer,"OK");
+                int y=write(sock_fd, buffer, MAXDATASIZE);
+                if(y<0)
+                {
+                    fprintf(stderr, "ERROR sending response to abort message to coordinator\n");
+                }
             }
-            printf("%d : commit%s\n", serverno,buffer);
+            
             bzero(buffer,MAXDATASIZE);
         }
+
+        fclose(myfile);
         close(sock_fd);
         close(sock);
         
