@@ -171,7 +171,7 @@ int main(int argc, char **argv)
                 //create an account id
                
                 printf("CREATE\n");
-                pthread_mutex_lock(&mut);
+               // pthread_mutex_lock(&mut);
 
                 double amt=atof(p);
                 
@@ -199,7 +199,7 @@ int main(int argc, char **argv)
                 if(t<0){
                     fprintf(stderr, "%d : Error writing to coordinator\n", serverno);
                 }
-                pthread_mutex_unlock(&mut);
+               // pthread_mutex_unlock(&mut);
             }
 
             else if(strcmp(command,"QUERY")==0)

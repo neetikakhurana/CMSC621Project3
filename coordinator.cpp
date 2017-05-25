@@ -22,13 +22,13 @@ char restart[MAXDATASIZE];
 	int notWorking=0;
 	pthread_mutex_t mut=PTHREAD_MUTEX_INITIALIZER;
 
-		char buffer1[MAXDATASIZE],buffer2[MAXDATASIZE],buffer3[MAXDATASIZE];
+	char buffer1[MAXDATASIZE],buffer2[MAXDATASIZE],buffer3[MAXDATASIZE];
+    int client_port, server1_port, server2_port, server3_port;
 
 int main(int argc, char *argv[])
 {
 	//struct sockaddr_in server_addr;
     
-    int client_port, server1_port, server2_port, server3_port;
     struct hostent *server;
 	int *new_sock;
 	u_int yes=1;
@@ -212,7 +212,7 @@ void *connection_handler(void * sock)
 	bzero(buffer, MAXDATASIZE);	
 	printf("Accepting from client \n");
 	int newsocket = *(int *)sock;
-
+	int l=0;
 	//read multiple requests from clients
 	while(1)
 	{
@@ -226,16 +226,29 @@ void *connection_handler(void * sock)
 			}
 			else
 			{
-				printf("Read successful from client %s\n", buffer);
+				if(strlen(buffer)!=0){
+					printf("Read successful from client %s\n", buffer);
+				}
 			}
-						strcpy(restart,buffer);
+				strcpy(restart,buffer);
+			if(strlen(buffer)==0){
+				if(l==10){			
+					int j=write(newsocket,"OK\r\n",MAXDATASIZE);
+					if(j<0){
+						fprintf(stderr, "Error\n");
+					}
+				}
+				l++;
+				pthread_mutex_unlock(&mut);
+			}
 		}
 		else
 		{
 			bzero(buffer,MAXDATASIZE);
 			strcpy(buffer,restart);
 		}
-		//pthread_mutex_lock(&mut);
+				pthread_mutex_lock(&mut);
+
 		struct timeval timeout;     
     	timeout.tv_sec  = 0;
     	timeout.tv_usec = 1;
@@ -244,6 +257,14 @@ void *connection_handler(void * sock)
         {
             perror("setsockopt failed\n");
         }
+
+        /*if(strlen(buffer)==0){
+        	int j=write(newsocket,"OK",MAXDATASIZE);
+        	if(j<0){
+        		fprintf(stderr, "Error writing done message\n");
+        	}
+        	break;
+        }*/
 
 		//send command to server1
 		if(notWorking!=1){
@@ -290,7 +311,7 @@ void *connection_handler(void * sock)
             {
             	perror("setsockopt failed\n");
             }
-            
+
 		//READ OK FROM SERVERS
 		//server1
 		if(notWorking!=1)
@@ -404,11 +425,11 @@ void *connection_handler(void * sock)
 			int t=write(socketfd1, buffer, MAXDATASIZE);
 			if(t < 0)
 			{
-				fprintf(stderr, "Error writing to server2\n");
+				fprintf(stderr, "Error writing to server1\n");
 			}
 			else
 			{
-				printf("Write successful to server2 %s\n",buffer);
+				printf("Write successful to server1 %s\n",buffer);
 			}
 		}
 		
@@ -443,9 +464,10 @@ void *connection_handler(void * sock)
 
 		//READ OK FROM SERVERS
 		//server1
+		char result[MAXDATASIZE];
 		if(notWorking!=1){
 			bzero(buffer1,MAXDATASIZE);
-			bzero(buffer,MAXDATASIZE);
+			bzero(result,MAXDATASIZE);
 			int u=read(socketfd1, buffer1, MAXDATASIZE);
 			if(u < 0)
 			{
@@ -454,7 +476,7 @@ void *connection_handler(void * sock)
 			else
 			{
 				printf("Read successful from server1 %s\n",buffer1);
-				strcpy(buffer,buffer1);
+				strcpy(result,buffer1);
 			}
 			count++;
 		}
@@ -462,7 +484,7 @@ void *connection_handler(void * sock)
 		//server2
 		if(notWorking!=2){
 		bzero(buffer2,MAXDATASIZE);
-		bzero(buffer,MAXDATASIZE);
+		bzero(result,MAXDATASIZE);
 		int t=read(socketfd2, buffer2, MAXDATASIZE);
 		if(t < 0)
 		{
@@ -471,7 +493,7 @@ void *connection_handler(void * sock)
 		else
 		{
 			printf("Read successful from server2 %s\n",buffer2);
-			strcpy(buffer,buffer2);
+			strcpy(result,buffer2);
 		}
 		count++;
 	}
@@ -479,7 +501,7 @@ void *connection_handler(void * sock)
 	//server3
 	if(notWorking!=3){
 		bzero(buffer3,MAXDATASIZE);
-		bzero(buffer,MAXDATASIZE);
+		bzero(result,MAXDATASIZE);
 		int t=read(socketfd3, buffer3, MAXDATASIZE);
 		if(t < 0)
 		{
@@ -488,7 +510,7 @@ void *connection_handler(void * sock)
 		else
 		{
 			printf("REad successful from server3 %s\n",buffer3);
-			strcpy(buffer,buffer3);
+			strcpy(result,buffer3);
 		}
 		count++;
 	}
@@ -496,7 +518,7 @@ void *connection_handler(void * sock)
 
 		if(flag==0 && count>0){
 		//write the response to the client
-			int t=write(newsocket,buffer,MAXDATASIZE);
+			int t=write(newsocket,result,MAXDATASIZE);
 			if(t<0){
 				fprintf(stderr, "Error writing final result to client\n");
 			}
@@ -505,7 +527,7 @@ void *connection_handler(void * sock)
 			}
 		}
 				
-		//pthread_mutex_unlock(&mut);
+		pthread_mutex_unlock(&mut);
 		bzero(buffer,MAXDATASIZE);
 	}
 }

@@ -57,11 +57,11 @@ int main(int argc, char **argv) {
     	printf("%s\n", buffer);
     }
     int ch;
-    filehandle = fopen("Test.txt","r");    
+    /*filehandle = fopen("Test.txt","r");    
     if(filehandle == 0){
         printf("Unable to open file");
         exit(1);
-    }
+    }*/
     bzero(buffer,MAXDATASIZE);
 
 	   	
@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
 			}
 			
 		}while(ch!=0);//fgets(buffer,MAXDATASIZE,filehandle));
-	fclose(filehandle);
+	//fclose(filehandle);
     close(socketfd);
 	exit(0);
 }
